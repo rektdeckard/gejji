@@ -1,6 +1,10 @@
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration};
+use std::fs::File;
+
 use clap::{Arg, App};
+use chrono::prelude::*;
+use daemonize::Daemonize;
 use sysinfo::{ProcessorExt, System, SystemExt};
 use serialport::{Result, SerialPort, SerialPortType, Error, ErrorKind, ClearBuffer};
 
@@ -27,9 +31,30 @@ fn main() {
             .conflicts_with("quiet"))
         .get_matches();
     
-    let daemonize = matches.is_present("daemonize");
     let quiet = matches.is_present("quiet");
     let verbose = matches.is_present("verbose");
+
+    if matches.is_present("daemonize") {
+        let stdout = File::create("/tmp/gejji.out").unwrap();
+        let stderr = File::create("/tmp/gejji.err").unwrap();
+        
+        let daemonize = Daemonize::new()
+            .pid_file("/tmp/test.pid") // Every method except `new` and `start`
+            .chown_pid_file(true)      // is optional, see `Daemonize` documentation
+            .working_directory("/tmp") // for default behaviour.
+            .user("nobody")
+            .group("daemon") // Group name
+            .group(2)        // or group id.
+            .umask(0o777)    // Set umask, `0o027` by default.
+            .stdout(stdout)  // Redirect stdout to `/tmp/daemon.out`.
+            .stderr(stderr)  // Redirect stderr to `/tmp/daemon.err`.
+            .privileged_action(|| "Executed before drop privileges");
+
+        match daemonize.start() {
+            Ok(_) => println!("Success, daemonized"),
+            Err(e) => eprintln!("Error, {}", e),
+        }
+    }
 
     if verbose { println!("{:?}", matches); }
 
@@ -47,8 +72,9 @@ fn main() {
         
 
         if verbose { 
-            println!("📊 CPU...{}%", cpu_usage as f64 / 10.0);
-            println!("💾 MEM...{}%", mem_usage as f64 / 10.0);
+            println!("{:?}", Utc::now());
+            println!("  📊 CPU...{}%", cpu_usage as f64 / 10.0);
+            println!("  💾 MEM...{}%", mem_usage as f64 / 10.0);
         }
 
         match detect_device() {
@@ -58,7 +84,7 @@ fn main() {
                 dev.write(format!("{}\n", mem_usage).as_bytes()).expect("Could not write");
             },
             Err(e) => {
-                if !quiet { println!("{}", e.description); }
+                if !quiet { println!("{:?}\n  {}", Utc::now(), e.description); }
             },
         }
 
