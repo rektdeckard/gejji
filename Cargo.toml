@@ -1,12 +1,14 @@
 [package]
-name = "ticker-rs"
+name = "gejji"
 version = "0.1.0"
-authors = ["rektdeckard <friedtm@gmail.com>"]
+authors = ["Tobias Fried <friedtm@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serialport="4.0.0"
-sysinfo="0.15.8"
+serialport = "4.0.0"
+sysinfo = "0.15.8"
+clap = "2.33.3"
+daemonize = "0.4.1"
 # periodic="0.1.1"
