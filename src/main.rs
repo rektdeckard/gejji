@@ -1,10 +1,14 @@
 use std::thread;
 use std::time::{Duration};
+
+#[cfg(target_family = "unix")]
 use std::fs::File;
+
+#[cfg(target_family = "unix")]
+use daemonize::Daemonize;
 
 use clap::{Arg, App};
 use chrono::prelude::*;
-use daemonize::Daemonize;
 use sysinfo::{ProcessorExt, System, SystemExt};
 use serialport::{Result, SerialPort, SerialPortType, Error, ErrorKind, ClearBuffer};
 
@@ -44,6 +48,7 @@ fn main() {
     let verbose = matches.is_present("verbose");
     let interval = matches.value_of("interval").unwrap().parse::<u64>().unwrap();
 
+    #[cfg(target_family = "unix")]
     if matches.is_present("daemonize") {
         let stdout = File::create("/tmp/gejji.out").unwrap();
         let stderr = File::create("/tmp/gejji.err").unwrap();
@@ -106,7 +111,7 @@ fn detect_device() -> Result<Box<dyn SerialPort>> {
         .into_iter()
         .find(|p| match &p.port_type {
             SerialPortType::UsbPort(dev) =>
-                dev.product.to_owned().unwrap() == "CP210x UART Bridge",
+                dev.product.to_owned().unwrap().contains("CP210x"),
             _ => false,
         }) {
         serialport::new(port.port_name.to_owned(), 9600).open()
