@@ -66,7 +66,7 @@ fn main() {
         }
     }
 
-    if verbose { println!("{:?}", matches); }
+    if verbose { println!("{:#?}", matches); }
 
     let mut sys = System::new_all();
 
@@ -79,7 +79,6 @@ fn main() {
             (((sys.get_used_memory() as f64 + sys.get_total_swap() as f64)
              / sys.get_total_memory() as f64) * 1000.0)
             .round() as u64;
-        
 
         if verbose { 
             println!("{:?}", Utc::now());
