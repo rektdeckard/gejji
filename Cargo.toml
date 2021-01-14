@@ -10,6 +10,8 @@ edition = "2018"
 serialport = "4.0.0"
 sysinfo = "0.15.8"
 clap = "2.33.3"
-daemonize = "0.4.1"
 chrono = "0.4.19"
 # periodic="0.1.1"
+
+[target.'cfg(unix)'.dependencies]
+daemonize = "0.4.1"
