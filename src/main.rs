@@ -17,7 +17,6 @@ fn main() {
             .short("d")
             .long("daemonize")
             .help("Runs the process in the background as a daemon")
-            .takes_value(false)
             .overrides_with_all(&["quiet", "verbose"]))
         .arg(Arg::with_name("quiet")
             .short("q")
@@ -29,10 +28,21 @@ fn main() {
             .long("verbose")
             .help("Prints additional debug info to stdout")
             .conflicts_with("quiet"))
+        .arg(Arg::with_name("interval")
+            .short("i")
+            .long("interval")
+            .help("Sets update interval in seconds")
+            .takes_value(true)
+            .validator(|i| match i.parse::<u64>() {
+                Ok(i) if i >= 1 => Ok(()),
+                _ => Err("Must be number >= 1 in seconds".to_string()),
+            })
+            .default_value("10"))
         .get_matches();
     
     let quiet = matches.is_present("quiet");
     let verbose = matches.is_present("verbose");
+    let interval = matches.value_of("interval").unwrap().parse::<u64>().unwrap();
 
     if matches.is_present("daemonize") {
         let stdout = File::create("/tmp/gejji.out").unwrap();
@@ -88,7 +98,7 @@ fn main() {
             },
         }
 
-        thread::sleep(Duration::from_secs(10));
+        thread::sleep(Duration::from_secs(interval));
     }
 }
 
