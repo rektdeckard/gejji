@@ -89,7 +89,7 @@ fn main() {
 
         match detect_device() {
             Ok(mut dev) => {
-                dev.clear(ClearBuffer::Output).expect("Could not clear buffer");
+                dev.clear(ClearBuffer::All).expect("Could not clear buffer");
                 dev.write(format!("{}\n", cpu_usage).as_bytes()).expect("Could not write");
                 dev.write(format!("{}\n", mem_usage).as_bytes()).expect("Could not write");
             },
