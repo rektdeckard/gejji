@@ -46,7 +46,7 @@ fn main() {
                 .takes_value(true)
                 .validator(|i| match i.parse::<u64>() {
                     Ok(i) if i >= 1 => Ok(()),
-                    _ => Err("Must be number >= 1 in seconds".to_string()),
+                    _ => Err(String::from("Interval must be number >= 1 in seconds")),
                 })
                 .default_value("10"),
         )
@@ -66,15 +66,15 @@ fn main() {
         let stderr = File::create("/tmp/gejji.err").unwrap();
 
         let daemonize = Daemonize::new()
-            .pid_file("/tmp/test.pid") // Every method except `new` and `start`
-            .chown_pid_file(true) // is optional, see `Daemonize` documentation
-            .working_directory("/tmp") // for default behaviour.
+            .pid_file("/tmp/test.pid")
+            .chown_pid_file(true)
+            .working_directory("/tmp")
             .user("nobody")
-            .group("daemon") // Group name
-            .group(2) // or group id.
-            .umask(0o777) // Set umask, `0o027` by default.
-            .stdout(stdout) // Redirect stdout to `/tmp/daemon.out`.
-            .stderr(stderr) // Redirect stderr to `/tmp/daemon.err`.
+            .group("daemon")
+            .group(2)
+            .umask(0o777)
+            .stdout(stdout)
+            .stderr(stderr)
             .privileged_action(|| "Executed before drop privileges");
 
         match daemonize.start() {
@@ -131,11 +131,11 @@ fn detect_device() -> Result<Box<dyn SerialPort>> {
             _ => false,
         })
     {
-        serialport::new(port.port_name.to_owned(), 9600).open()
+        serialport::new(port.port_name, 9600).open()
     } else {
         Err(Error {
             kind: ErrorKind::NoDevice,
-            description: "No compatible device found".to_owned(),
+            description: String::from("No compatible device found"),
         })
     }
 }
