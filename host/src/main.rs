@@ -100,7 +100,7 @@ fn main() {
 
         if verbose {
             println!("{:?}", Utc::now());
-            println!("  📊 CPU...{}%", cpu_usage as f64 / 10.0);
+            println!("  📈 CPU...{}%", cpu_usage as f64 / 10.0);
             println!("  💾 MEM...{}%", mem_usage as f64 / 10.0);
         }
 
