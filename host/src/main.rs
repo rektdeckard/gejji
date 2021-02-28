@@ -1,5 +1,6 @@
 use std::thread;
 use std::time::Duration;
+use serde_json::json;
 
 #[cfg(target_family = "unix")]
 use std::fs::File;
@@ -104,12 +105,16 @@ fn main() {
             println!("  💾 MEM...{}%", mem_usage as f64 / 10.0);
         }
 
+        let json = json!({
+            "cpu": cpu_usage,
+            "mem" : mem_usage,
+            "interval": interval
+        });
+
         match detect_device() {
             Ok(mut dev) => {
                 dev.clear(ClearBuffer::All).expect("Could not clear buffer");
-                dev.write(format!("{}\n", cpu_usage).as_bytes())
-                    .expect("Could not write");
-                dev.write(format!("{}\n", mem_usage).as_bytes())
+                dev.write(format!("{}", json).as_bytes())
                     .expect("Could not write");
             }
             Err(e) => {

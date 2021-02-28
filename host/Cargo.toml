@@ -11,6 +11,7 @@ serialport = "4.0.0"
 sysinfo = "0.15.8"
 clap = "2.33.3"
 chrono = "0.4.19"
+serde_json = "1.0.59"
 # periodic="0.1.1"
 
 [target.'cfg(unix)'.dependencies]

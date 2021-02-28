@@ -1,8 +1,10 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
+#include <ArduinoJson.h>
 #include "Adafruit_LEDBackpack.h"
 
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
+DynamicJsonDocument doc(256);
 
 void setup() {
   Serial.begin(9600);
@@ -34,11 +36,24 @@ void setup() {
 
 void loop() {
   if (!Serial.available()) {
+    delay(50);
     return;
   }
 
-  String cpu_string = Serial.readStringUntil('\n');
-  String mem_string = Serial.readStringUntil('\n');
+  auto error = deserializeJson(doc, Serial);
+  if (error) {
+    Serial.println(error.c_str());
+    delay(50);
+    return;
+  }
+  
+  JsonObject root = doc.as<JsonObject>();
+  int cpu = root["cpu"].as<int>();
+  int mem = root["mem"].as<int>();
+  int interval = root["interval"].as<int>();
+
+  String cpu_string = String(cpu);
+  String mem_string = String(mem);
 
   // Display CPU Usage
   alpha4.writeDigitAscii(2, '0', true);
@@ -47,7 +62,7 @@ void loop() {
   }
   alpha4.writeDigitAscii(0, 'C');
   alpha4.writeDisplay();
-  delay(5000);
+  delay(interval * 500);
   alpha4.clear();
 
   // Display Memory Usage
@@ -57,6 +72,6 @@ void loop() {
   }
   alpha4.writeDigitAscii(0, 'M');
   alpha4.writeDisplay();
-  delay(5000);
+  delay(interval * 500);
   alpha4.clear();
 }
