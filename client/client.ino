@@ -36,7 +36,9 @@ void setup() {
 
 void loop() {
   if (!Serial.available()) {
-    delay(50);
+    alpha4.clear();
+    alpha4.writeDisplay();
+    delay(1000);
     return;
   }
 
@@ -51,6 +53,11 @@ void loop() {
   int cpu = root["cpu"].as<int>();
   int mem = root["mem"].as<int>();
   int interval = root["interval"].as<int>();
+  int bri = root["bri"].as<int>();
+
+  if (bri) {
+    alpha4.setBrightness(bri);
+  }
 
   String cpu_string = String(cpu);
   String mem_string = String(mem);

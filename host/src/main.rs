@@ -1,6 +1,5 @@
 use std::thread;
 use std::time::Duration;
-use serde_json::json;
 
 #[cfg(target_family = "unix")]
 use std::fs::File;
@@ -12,10 +11,11 @@ use chrono::prelude::*;
 use clap::{App, Arg};
 use serialport::{ClearBuffer, Error, ErrorKind, Result, SerialPort, SerialPortType};
 use sysinfo::{ProcessorExt, System, SystemExt};
+use serde_json::json;
 
 fn main() {
     let matches = App::new("Gejji")
-        .version("0.1.0")
+        .version("0.2.0")
         .author("Tobias Fried <friedtm@gmail.com>")
         .about("A retro readout of your system stats")
         .arg(
@@ -51,6 +51,18 @@ fn main() {
                 })
                 .default_value("10"),
         )
+        .arg(
+            Arg::with_name("brightness")
+                .short("b")
+                .long("brightness")
+                .help("Sets display brightness between 0-15")
+                .takes_value(true)
+                .validator(|i| match i.parse::<u8>() {
+                    Ok(i) if i <= 15 => Ok(()),
+                    _ => Err(String::from("Brightness must be number between 0 and 15")),
+                })
+                .default_value("3"),
+        )
         .get_matches();
 
     let quiet = matches.is_present("quiet");
@@ -60,6 +72,15 @@ fn main() {
         .unwrap()
         .parse::<u64>()
         .unwrap();
+    let brightness = matches
+        .value_of("brightness")
+        .unwrap()
+        .parse::<u8>()
+        .unwrap();
+
+    if verbose {
+        println!("{:#?}", matches);
+    }
 
     #[cfg(target_family = "unix")]
     if matches.is_present("daemonize") {
@@ -84,10 +105,6 @@ fn main() {
         }
     }
 
-    if verbose {
-        println!("{:#?}", matches);
-    }
-
     let mut sys = System::new_all();
 
     loop {
@@ -100,15 +117,16 @@ fn main() {
             .round() as u64;
 
         if verbose {
-            println!("{:?}", Utc::now());
-            println!("  📈 CPU...{}%", cpu_usage as f64 / 10.0);
-            println!("  💾 MEM...{}%", mem_usage as f64 / 10.0);
+            print!("{:?}", Utc::now());
+            print!(" | CPU: {}%", cpu_usage as f64 / 10.0);
+            println!(" | MEM: {}%", mem_usage as f64 / 10.0);
         }
 
         let json = json!({
             "cpu": cpu_usage,
             "mem" : mem_usage,
-            "interval": interval
+            "interval": interval,
+            "bri": brightness,
         });
 
         match detect_device() {
@@ -119,7 +137,7 @@ fn main() {
             }
             Err(e) => {
                 if !quiet {
-                    println!("{:?}\n  {}", Utc::now(), e.description);
+                    println!("{:?} | {}", Utc::now(), e.description);
                 }
             }
         }
