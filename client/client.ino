@@ -6,6 +6,8 @@
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 DynamicJsonDocument doc(256);
 
+int retries = 0;
+
 void setup() {
   Serial.begin(9600);
   
@@ -36,11 +38,19 @@ void setup() {
 
 void loop() {
   if (!Serial.available()) {
-    alpha4.clear();
-    alpha4.writeDisplay();
-    delay(1000);
+    retries += 1;
+
+    if (retries > 20) {
+      alpha4.clear();
+      alpha4.writeDisplay();
+      delay(950);
+    }
+
+    delay(50);
     return;
   }
+
+  retries = 0;
 
   auto error = deserializeJson(doc, Serial);
   if (error) {
