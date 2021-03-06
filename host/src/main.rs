@@ -55,11 +55,11 @@ fn main() {
             Arg::with_name("brightness")
                 .short("b")
                 .long("brightness")
-                .help("Sets display brightness between 0-15")
+                .help("Sets display brightness between 1-15")
                 .takes_value(true)
                 .validator(|i| match i.parse::<u8>() {
-                    Ok(i) if i <= 15 => Ok(()),
-                    _ => Err(String::from("Brightness must be number between 0 and 15")),
+                    Ok(i) if i > 0 && i <= 15 => Ok(()),
+                    _ => Err(String::from("Brightness must be number between 1 and 15")),
                 })
                 .default_value("3"),
         )
