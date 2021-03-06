@@ -9,9 +9,9 @@ use daemonize::Daemonize;
 
 use chrono::prelude::*;
 use clap::{App, Arg};
-use serialport::{ClearBuffer, Error, ErrorKind, Result, SerialPort, SerialPortType};
-use sysinfo::{ProcessorExt, System, SystemExt};
 use serde_json::json;
+use serialport::{ClearBuffer, Error, ErrorKind, Result, SerialPort, SerialPortType};
+use sysinfo::{ProcessorExt, RefreshKind, System, SystemExt};
 
 fn main() {
     let matches = App::new("Gejji")
@@ -105,7 +105,12 @@ fn main() {
         }
     }
 
-    let mut sys = System::new_all();
+    let mut sys = System::new_with_specifics(
+        RefreshKind::everything()
+            .without_disks()
+            .without_users_list()
+            .without_components(),
+    );
 
     loop {
         sys.refresh_cpu();
@@ -132,7 +137,7 @@ fn main() {
         match detect_device() {
             Ok(mut dev) => {
                 dev.clear(ClearBuffer::All).expect("Could not clear buffer");
-                dev.write(format!("{}", json).as_bytes())
+                dev.write(json.to_string().as_bytes())
                     .expect("Could not write");
             }
             Err(e) => {
