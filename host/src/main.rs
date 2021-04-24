@@ -142,7 +142,7 @@ fn main() {
             }
             Err(e) => {
                 if !quiet {
-                    println!("{:?} | {}", Utc::now(), e.description);
+                    println!("{:30} Error: {}", format!("{:?}", Utc::now()), e.description);
                 }
             }
         }
