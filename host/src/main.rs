@@ -63,6 +63,22 @@ fn main() {
                 })
                 .default_value("3"),
         )
+        .arg(
+            Arg::with_name("oled")
+                .short("o")
+                .long("oled")
+                .alias("oled")
+                .help("Use Adafruit OLED FeatherWing display")
+                .overrides_with("alphanum"),
+        )
+        .arg(
+            Arg::with_name("alphanum")
+                .short("a")
+                .long("alphanum")
+                .alias("alphanum")
+                .help("Use Adafruit 7-segment Alphanum display")
+                .overrides_with("oled"),
+        )
         .get_matches();
 
     let quiet = matches.is_present("quiet");
@@ -77,6 +93,7 @@ fn main() {
         .unwrap()
         .parse::<u8>()
         .unwrap();
+    let alphanum = matches.is_present("alphanum");
 
     if verbose {
         println!("{:#?}", matches);
@@ -132,6 +149,7 @@ fn main() {
             "mem" : mem_usage,
             "interval": interval,
             "bri": brightness,
+            "alphanum": alphanum,
         });
 
         match detect_device() {
