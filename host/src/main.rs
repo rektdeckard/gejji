@@ -11,7 +11,7 @@ use chrono::prelude::*;
 use clap::{App, Arg};
 use serde_json::json;
 use serialport::{ClearBuffer, Error, ErrorKind, Result, SerialPort, SerialPortType};
-use sysinfo::{ProcessorExt, RefreshKind, System, SystemExt};
+use sysinfo::{NetworkExt, NetworksExt, ProcessorExt, RefreshKind, System, SystemExt};
 
 fn main() {
     let matches = App::new("Gejji")
@@ -132,16 +132,36 @@ fn main() {
     loop {
         sys.refresh_cpu();
         sys.refresh_memory();
+        sys.refresh_networks();
         let cpu_usage = (sys.get_global_processor_info().get_cpu_usage() * 10.0).round() as u64;
         let mem_usage = (((sys.get_used_memory() as f64 + sys.get_total_swap() as f64)
             / sys.get_total_memory() as f64)
             * 1000.0)
             .round() as u64;
 
+        let net_up_kbps: u64 = (sys
+            .get_networks()
+            .iter()
+            .map(|(_, data)| data.get_transmitted())
+            .sum::<u64>() as f64
+            / 1024.0
+            / (interval as f64))
+            .round() as u64;
+        let net_down_kbps: u64 = (sys
+            .get_networks()
+            .iter()
+            .map(|(_, data)| data.get_received())
+            .sum::<u64>() as f64
+            / 1024.0
+            / (interval as f64))
+            .round() as u64;
+
         if verbose {
             print!("{:?}", Utc::now());
             print!(" | CPU: {}%", cpu_usage as f64 / 10.0);
-            println!(" | MEM: {}%", mem_usage as f64 / 10.0);
+            print!(" | MEM: {}%", mem_usage as f64 / 10.0);
+            print!(" | NET_UP: {}KB/s", net_up_kbps);
+            println!(" | NET_DN: {}KB/s", net_down_kbps);
         }
 
         let json = json!({
@@ -150,6 +170,8 @@ fn main() {
             "interval": interval,
             "bri": brightness,
             "alphanum": alphanum,
+            "net_up": net_up_kbps,
+            "net_down": net_down_kbps,
         });
 
         match detect_device() {
@@ -160,7 +182,11 @@ fn main() {
             }
             Err(e) => {
                 if !quiet {
-                    println!("{:30} | Error: {}", format!("{:?}", Utc::now()), e.description);
+                    println!(
+                        "{:30} | Error: {}",
+                        format!("{:?}", Utc::now()),
+                        e.description
+                    );
                 }
             }
         }

@@ -22,11 +22,99 @@ DynamicJsonDocument doc(256);
 
 #define CPU 0
 #define MEM 1
+#define NET_UP 2
+#define NET_DOWN 3
+
+#define A_BUTTON 0
+#define B_BUTTON 16
+#define C_BUTTON 2
+
+enum View {
+  SYSTEM,
+  NETWORK
+};
 
 int retries = 0;
 bool alphanum = true;
-uint8_t idx = 0;
-uint16_t data[2][128];
+int idx = 0;
+int data[4][128];
+View view = SYSTEM;
+
+volatile bool displayImmediate = false;
+volatile bool showInfo = true;
+volatile unsigned long lastTrigger = millis();
+volatile int bounce = 0;
+int prevBounceCount = 0;
+
+static const unsigned char PROGMEM logo[] =
+{
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11111111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11111111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11111111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11111111,0b11111111,0b00000000,0b00000000,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b00000000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11110000,0b11110000,0b11111111,0b00000000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b00001111,
+  0b11110000,0b11110000,0b11111111,0b00000000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b00001111,
+  0b11110000,0b11110000,0b11111111,0b00000000,0b11111111,0b00001111,0b11111111,0b11111111,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b00001111,
+  0b11110000,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b00001111,0b11110000,0b11111111,0b00001111,0b11111111,0b00001111,
+  0b11111111,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b00001111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b00001111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b11111111,0b11110000,0b11111111,0b00001111,0b11111111,0b11110000,0b11111111,0b00001111,0b00001111,0b11110000,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11110000,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b00000000,0b11111111,0b11110000,0b00001111,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b00000000,0b11111111,0b11110000,0b00001111,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b00000000,0b11111111,0b11110000,0b00001111,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b00000000,0b00001111,0b11111111,0b00000000,0b00000000,0b11111111,0b00000000,0b11111111,0b11110000,0b00001111,0b11111111,0b00001111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+  0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
+};
+
+ICACHE_RAM_ATTR void changeView() {
+  if (lastTrigger > millis() || lastTrigger + 200 < millis())
+  {
+    lastTrigger = millis(); 
+    if (view == SYSTEM) {
+      view = NETWORK;
+    } else {
+      view = SYSTEM;
+    }
+
+    if (!alphanum) {
+      displayImmediate = true;
+    }
+  }
+  else{
+    bounce++;
+  }
+}
+
+ICACHE_RAM_ATTR void toggleInfo() {
+  if (lastTrigger > millis() || lastTrigger + 200 < millis())
+  {
+    lastTrigger = millis(); 
+    showInfo = !showInfo;
+
+    if (!alphanum) {
+      displayImmediate = true;
+    }
+  }
+  else{
+    bounce++;
+  }
+}
 
 void initAlphanumericDisplay()
 {
@@ -71,8 +159,8 @@ void initOLEDDisplay()
       ; // Don't proceed, loop forever
   }
 
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
+  display.clearDisplay();
+  display.drawBitmap(0, 0, logo, 128, 32, 1);
   display.display();
   delay(2000); // Pause for 2 seconds
 
@@ -80,10 +168,16 @@ void initOLEDDisplay()
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+
+  pinMode(A_BUTTON, INPUT_PULLUP);
+  pinMode(C_BUTTON, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(A_BUTTON), toggleInfo, RISING);
+  attachInterrupt(digitalPinToInterrupt(C_BUTTON), changeView, RISING);
 }
 
 void setup()
 {
+  memset(data, 0, sizeof(int) * 4 * 128);
   Serial.begin(9600);
 
   while (!Serial.available())
@@ -91,8 +185,6 @@ void setup()
     // Wait for first packet
     delay(1000);
   }
-
-  Serial.println("Got packets");
 
   auto error = deserializeJson(doc, Serial);
   if (error)
@@ -115,8 +207,112 @@ void setup()
   }
 }
 
+void paintOLED() {
+    display.clearDisplay();
+
+    if (view == SYSTEM) {
+      for (int i = idx, x = 0; x < display.width(); --i, ++x)
+      {
+        if (i < 0)
+          i = display.width() - 1;
+
+        int16_t pos = display.width() - x - 1;
+        display.drawLine(pos, display.height(), pos, display.height() - (data[CPU][i] * display.height()) / 2000, SSD1306_WHITE);
+        display.drawLine(pos, 0, pos, (data[MEM][i] * display.height()) / 2000, SSD1306_WHITE);
+      }
+
+      if (showInfo) {
+        display.setCursor(4, 4);
+        display.printf("MEM %d%%", data[MEM][idx] / 10);
+        display.setCursor(4, 20);
+        display.printf("CPU %d%%", data[CPU][idx] / 10);
+      }
+    } else {
+      int max_up = 10;
+      int max_down = 10;
+
+      for (int n = 0; n < 128; n++) {
+        if (data[NET_UP][n] > max_up) {
+          max_up = data[NET_UP][n];
+        }
+        if (data[NET_DOWN][n] > max_down) {
+          max_down = data[NET_DOWN][n];
+        }
+      }
+
+        // Bracketed scaling
+//      if (max_up > 100000) {
+//        max_up = 1000000;
+//      } else if (max_up > 10000) {
+//        max_up = 100000;
+//      }
+//      } else if (max_up > 10000) {
+//        max_up = 100000;
+//      } else if (max_up > 1000) {
+//        max_up = 10000;
+//      } else if (max_up > 100) {
+//        max_up = 1000;
+//      } else if (max_up > 10) {
+//        max_up = 100;
+//      }
+//
+//      
+//      if (max_down > 100000) {
+//        max_down = 1000000;
+//      } else if (max_down > 10000) {
+//        max_down = 100000;
+//      } else if (max_down > 1000) {
+//        max_down = 10000;
+//      } else if (max_down > 100) {
+//        max_down = 1000;
+//      } else if (max_down > 10) {
+//        max_down = 100;
+//      }
+
+      for (int i = idx, x = 0; x < display.width(); --i, ++x)
+        {
+          if (i < 0)
+            i = display.width() - 1;
+
+          int16_t pos = display.width() - x - 1;
+
+          if (max_up > 0) {
+            display.drawLine(pos, 0, pos, (data[NET_UP][i] * display.height()) / (2 * max_up), SSD1306_WHITE);
+          }
+          if (max_down > 0) {
+            display.drawLine(pos, display.height(), pos, display.height() - (data[NET_DOWN][i] * display.height()) / (2 * max_down), SSD1306_WHITE);
+          }
+        }
+
+
+      if (showInfo) {
+        display.setCursor(4, 4);
+        int net_up = data[NET_UP][idx];
+        if (net_up > 1023) {
+           display.printf("UP %.1f MB/s", net_up / 1024.0);
+        } else {
+           display.printf("UP %d KB/s", net_up);
+        }
+        display.setCursor(4, 20);
+        int net_down = data[NET_DOWN][idx];
+        if (net_down > 1024) {
+          display.printf("DN %.1f MB/s", net_down / 1024.0);
+        } else {
+          display.printf("DN %d KB/s", data[NET_DOWN][idx]);
+        }
+      }
+    }
+
+    display.display();
+}
+
 void loop()
 {
+  if (displayImmediate && !alphanum) {
+     displayImmediate = false;
+     paintOLED();
+  }
+  
   if (!Serial.available())
   {
     retries += 1;
@@ -145,13 +341,13 @@ void loop()
     return;
   }
 
-  Serial.println("Got data!");
-
   JsonObject root = doc.as<JsonObject>();
   int cpu = root["cpu"].as<int>();
   int mem = root["mem"].as<int>();
   int interval = root["interval"].as<int>();
   int bri = root["bri"].as<int>();
+  int net_up = root["net_up"].as<int>();
+  int net_down = root["net_down"].as<int>();
 
   String cpu_string = String(cpu);
   String mem_string = String(mem);
@@ -188,29 +384,15 @@ void loop()
   }
   else
   {
-    display.clearDisplay();
     if (idx >= display.width())
       idx = 0;
 
     data[CPU][idx] = cpu;
     data[MEM][idx] = mem;
-
-    for (int i = idx, x = 0; x < display.width(); --i, ++x)
-    {
-      if (i < 0)
-        i = display.width() - 1;
-
-      int16_t pos = display.width() - x;
-      display.drawLine(pos, display.height(), pos, display.height() - (data[CPU][i] * display.height()) / 2000, SSD1306_WHITE);
-      display.drawLine(pos, 0, pos, (data[MEM][i] * display.height()) / 2000, SSD1306_WHITE);
-    }
-
-    display.setCursor(4, 4);
-    display.printf("MEM %0g", mem / 10.0);
-    display.setCursor(4, 20);
-    display.printf("CPU %0g", cpu / 10.0);
-    display.display();
-
+    data[NET_UP][idx] = net_up;
+    data[NET_DOWN][idx] = net_down;
+    
+    paintOLED();
     idx += 1;
   }
 }
