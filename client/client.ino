@@ -29,7 +29,8 @@ DynamicJsonDocument doc(256);
 #define B_BUTTON 16
 #define C_BUTTON 2
 
-enum View {
+enum View
+{
   SYSTEM,
   NETWORK
 };
@@ -46,6 +47,7 @@ volatile unsigned long lastTrigger = millis();
 volatile int bounce = 0;
 int prevBounceCount = 0;
 
+// clang-format off
 static const unsigned char PROGMEM logo[] =
 {
   0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
@@ -81,37 +83,47 @@ static const unsigned char PROGMEM logo[] =
   0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
   0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,0b11111111,
 };
+// clang-format on
 
-ICACHE_RAM_ATTR void changeView() {
+ICACHE_RAM_ATTR void changeView()
+{
   if (lastTrigger > millis() || lastTrigger + 200 < millis())
   {
-    lastTrigger = millis(); 
-    if (view == SYSTEM) {
+    lastTrigger = millis();
+    if (view == SYSTEM)
+    {
       view = NETWORK;
-    } else {
+    }
+    else
+    {
       view = SYSTEM;
     }
 
-    if (!alphanum) {
+    if (!alphanum)
+    {
       displayImmediate = true;
     }
   }
-  else{
+  else
+  {
     bounce++;
   }
 }
 
-ICACHE_RAM_ATTR void toggleInfo() {
+ICACHE_RAM_ATTR void toggleInfo()
+{
   if (lastTrigger > millis() || lastTrigger + 200 < millis())
   {
-    lastTrigger = millis(); 
+    lastTrigger = millis();
     showInfo = !showInfo;
 
-    if (!alphanum) {
+    if (!alphanum)
+    {
       displayImmediate = true;
     }
   }
-  else{
+  else
+  {
     bounce++;
   }
 }
@@ -167,6 +179,7 @@ void initOLEDDisplay()
   // Clear the buffer
   display.clearDisplay();
   display.setTextSize(1);
+  display.cp437(true);
   display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
 
   pinMode(A_BUTTON, INPUT_PULLUP);
@@ -207,112 +220,129 @@ void setup()
   }
 }
 
-void paintOLED() {
-    display.clearDisplay();
+void paintOLED()
+{
+  display.clearDisplay();
 
-    if (view == SYSTEM) {
-      for (int i = idx, x = 0; x < display.width(); --i, ++x)
+  if (view == SYSTEM)
+  {
+    for (int i = idx, x = 0; x < display.width(); --i, ++x)
+    {
+      if (i < 0)
+        i = display.width() - 1;
+
+      int16_t pos = display.width() - x - 1;
+      display.drawLine(pos, display.height(), pos, display.height() - (data[CPU][i] * display.height()) / 2000, SSD1306_WHITE);
+      display.drawLine(pos, 0, pos, (data[MEM][i] * display.height()) / 2000, SSD1306_WHITE);
+    }
+
+    if (showInfo)
+    {
+      display.setCursor(2, 4);
+      display.printf("MEM %d%%", data[MEM][idx] / 10);
+      display.setCursor(2, 20);
+      display.printf("CPU %d%%", data[CPU][idx] / 10);
+    }
+  }
+  else
+  {
+    int max_up = 10;
+    int max_down = 10;
+
+    for (int n = 0; n < 128; n++)
+    {
+      if (data[NET_UP][n] > max_up)
       {
-        if (i < 0)
-          i = display.width() - 1;
-
-        int16_t pos = display.width() - x - 1;
-        display.drawLine(pos, display.height(), pos, display.height() - (data[CPU][i] * display.height()) / 2000, SSD1306_WHITE);
-        display.drawLine(pos, 0, pos, (data[MEM][i] * display.height()) / 2000, SSD1306_WHITE);
+        max_up = data[NET_UP][n];
       }
-
-      if (showInfo) {
-        display.setCursor(4, 4);
-        display.printf("MEM %d%%", data[MEM][idx] / 10);
-        display.setCursor(4, 20);
-        display.printf("CPU %d%%", data[CPU][idx] / 10);
-      }
-    } else {
-      int max_up = 10;
-      int max_down = 10;
-
-      for (int n = 0; n < 128; n++) {
-        if (data[NET_UP][n] > max_up) {
-          max_up = data[NET_UP][n];
-        }
-        if (data[NET_DOWN][n] > max_down) {
-          max_down = data[NET_DOWN][n];
-        }
-      }
-
-        // Bracketed scaling
-//      if (max_up > 100000) {
-//        max_up = 1000000;
-//      } else if (max_up > 10000) {
-//        max_up = 100000;
-//      }
-//      } else if (max_up > 10000) {
-//        max_up = 100000;
-//      } else if (max_up > 1000) {
-//        max_up = 10000;
-//      } else if (max_up > 100) {
-//        max_up = 1000;
-//      } else if (max_up > 10) {
-//        max_up = 100;
-//      }
-//
-//      
-//      if (max_down > 100000) {
-//        max_down = 1000000;
-//      } else if (max_down > 10000) {
-//        max_down = 100000;
-//      } else if (max_down > 1000) {
-//        max_down = 10000;
-//      } else if (max_down > 100) {
-//        max_down = 1000;
-//      } else if (max_down > 10) {
-//        max_down = 100;
-//      }
-
-      for (int i = idx, x = 0; x < display.width(); --i, ++x)
-        {
-          if (i < 0)
-            i = display.width() - 1;
-
-          int16_t pos = display.width() - x - 1;
-
-          if (max_up > 0) {
-            display.drawLine(pos, 0, pos, (data[NET_UP][i] * display.height()) / (2 * max_up), SSD1306_WHITE);
-          }
-          if (max_down > 0) {
-            display.drawLine(pos, display.height(), pos, display.height() - (data[NET_DOWN][i] * display.height()) / (2 * max_down), SSD1306_WHITE);
-          }
-        }
-
-
-      if (showInfo) {
-        display.setCursor(4, 4);
-        int net_up = data[NET_UP][idx];
-        if (net_up > 1023) {
-           display.printf("UP %.1f MB/s", net_up / 1024.0);
-        } else {
-           display.printf("UP %d KB/s", net_up);
-        }
-        display.setCursor(4, 20);
-        int net_down = data[NET_DOWN][idx];
-        if (net_down > 1024) {
-          display.printf("DN %.1f MB/s", net_down / 1024.0);
-        } else {
-          display.printf("DN %d KB/s", data[NET_DOWN][idx]);
-        }
+      if (data[NET_DOWN][n] > max_down)
+      {
+        max_down = data[NET_DOWN][n];
       }
     }
 
-    display.display();
+    // Bracketed scaling
+    //      if (max_up > 100000) {
+    //        max_up = 1000000;
+    //      } else if (max_up > 10000) {
+    //        max_up = 100000;
+    //      }
+    //      } else if (max_up > 10000) {
+    //        max_up = 100000;
+    //      } else if (max_up > 1000) {
+    //        max_up = 10000;
+    //      } else if (max_up > 100) {
+    //        max_up = 1000;
+    //      } else if (max_up > 10) {
+    //        max_up = 100;
+    //      }
+    //
+    //
+    //      if (max_down > 100000) {
+    //        max_down = 1000000;
+    //      } else if (max_down > 10000) {
+    //        max_down = 100000;
+    //      } else if (max_down > 1000) {
+    //        max_down = 10000;
+    //      } else if (max_down > 100) {
+    //        max_down = 1000;
+    //      } else if (max_down > 10) {
+    //        max_down = 100;
+    //      }
+
+    for (int i = idx, x = 0; x < display.width(); --i, ++x)
+    {
+      if (i < 0)
+        i = display.width() - 1;
+
+      int16_t pos = display.width() - x - 1;
+
+      if (max_up > 0)
+      {
+        display.drawLine(pos, 0, pos, (data[NET_UP][i] * display.height()) / (2 * max_up), SSD1306_WHITE);
+      }
+      if (max_down > 0)
+      {
+        display.drawLine(pos, display.height(), pos, display.height() - (data[NET_DOWN][i] * display.height()) / (2 * max_down), SSD1306_WHITE);
+      }
+    }
+
+    if (showInfo)
+    {
+      display.setCursor(2, 4);
+      int net_up = data[NET_UP][idx];
+      if (net_up > 1023)
+      {
+        display.write(0x1E); display.printf(" %.1f MB/s", net_up / 1024.0);
+      }
+      else
+      {
+        display.write(0x1E); display.printf(" %d KB/s", net_up);
+      }
+      display.setCursor(2, 20);
+      int net_down = data[NET_DOWN][idx];
+      if (net_down > 1024)
+      {
+        display.write(0x1F); display.printf(" %.1f MB/s", net_down / 1024.0);
+      }
+      else
+      {
+        display.write(0x1F); display.printf(" %d KB/s", data[NET_DOWN][idx]);
+      }
+    }
+  }
+
+  display.display();
 }
 
 void loop()
 {
-  if (displayImmediate && !alphanum) {
-     displayImmediate = false;
-     paintOLED();
+  if (displayImmediate && !alphanum)
+  {
+    displayImmediate = false;
+    paintOLED();
   }
-  
+
   if (!Serial.available())
   {
     retries += 1;
@@ -391,7 +421,7 @@ void loop()
     data[MEM][idx] = mem;
     data[NET_UP][idx] = net_up;
     data[NET_DOWN][idx] = net_down;
-    
+
     paintOLED();
     idx += 1;
   }
