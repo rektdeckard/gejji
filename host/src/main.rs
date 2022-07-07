@@ -203,7 +203,7 @@ fn detect_device() -> Result<Box<dyn SerialPort>> {
             _ => false,
         })
     {
-        serialport::new(port.port_name, 9600).open()
+        serialport::new(port.port_name, 115200).open()
     } else {
         Err(Error {
             kind: ErrorKind::NoDevice,

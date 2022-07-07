@@ -191,7 +191,7 @@ void initOLEDDisplay()
 void setup()
 {
   memset(data, 0, sizeof(int) * 4 * 128);
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   while (!Serial.available())
   {
