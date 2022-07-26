@@ -24,6 +24,8 @@ DynamicJsonDocument doc(256);
 #define MEM 1
 #define NET_UP 2
 #define NET_DOWN 3
+#define DISK_READ 4
+#define DISK_WRITE 5
 
 #define A_BUTTON 0
 #define B_BUTTON 16
@@ -32,13 +34,14 @@ DynamicJsonDocument doc(256);
 enum View
 {
   SYSTEM,
-  NETWORK
+  NETWORK,
+  DISK,
 };
 
 int retries = 0;
 bool alphanum = true;
 int idx = 0;
-int data[4][128];
+int data[6][128];
 View view = SYSTEM;
 
 volatile bool displayImmediate = false;
@@ -93,6 +96,10 @@ ICACHE_RAM_ATTR void changeView()
     if (view == SYSTEM)
     {
       view = NETWORK;
+    }
+    else if (view == NETWORK)
+    {
+      view = DISK;
     }
     else
     {
@@ -244,7 +251,7 @@ void paintOLED()
       display.printf("CPU %d%%", data[CPU][idx] / 10);
     }
   }
-  else
+  else if (view == NETWORK)
   {
     int max_up = 10;
     int max_down = 10;
@@ -260,35 +267,6 @@ void paintOLED()
         max_down = data[NET_DOWN][n];
       }
     }
-
-    // Bracketed scaling
-    //      if (max_up > 100000) {
-    //        max_up = 1000000;
-    //      } else if (max_up > 10000) {
-    //        max_up = 100000;
-    //      }
-    //      } else if (max_up > 10000) {
-    //        max_up = 100000;
-    //      } else if (max_up > 1000) {
-    //        max_up = 10000;
-    //      } else if (max_up > 100) {
-    //        max_up = 1000;
-    //      } else if (max_up > 10) {
-    //        max_up = 100;
-    //      }
-    //
-    //
-    //      if (max_down > 100000) {
-    //        max_down = 1000000;
-    //      } else if (max_down > 10000) {
-    //        max_down = 100000;
-    //      } else if (max_down > 1000) {
-    //        max_down = 10000;
-    //      } else if (max_down > 100) {
-    //        max_down = 1000;
-    //      } else if (max_down > 10) {
-    //        max_down = 100;
-    //      }
 
     for (int i = idx, x = 0; x < display.width(); --i, ++x)
     {
@@ -313,21 +291,83 @@ void paintOLED()
       int net_up = data[NET_UP][idx];
       if (net_up > 1023)
       {
-        display.write(0x1E); display.printf(" %.1f MB/s", net_up / 1024.0);
+        display.write(0x1E);
+        display.printf(" %.1f MB/s", net_up / 1024.0);
       }
       else
       {
-        display.write(0x1E); display.printf(" %d KB/s", net_up);
+        display.write(0x1E);
+        display.printf(" %d KB/s", net_up);
       }
       display.setCursor(2, 20);
       int net_down = data[NET_DOWN][idx];
       if (net_down > 1024)
       {
-        display.write(0x1F); display.printf(" %.1f MB/s", net_down / 1024.0);
+        display.write(0x1F);
+        display.printf(" %.1f MB/s", net_down / 1024.0);
       }
       else
       {
-        display.write(0x1F); display.printf(" %d KB/s", data[NET_DOWN][idx]);
+        display.write(0x1F);
+        display.printf(" %d KB/s", data[NET_DOWN][idx]);
+      }
+    }
+  }
+  else
+  {
+    int max_up = 10;
+    int max_down = 10;
+
+    for (int n = 0; n < 128; n++)
+    {
+      if (data[DISK_READ][n] > max_up)
+      {
+        max_up = data[DISK_READ][n];
+      }
+      if (data[DISK_WRITE][n] > max_down)
+      {
+        max_down = data[DISK_WRITE][n];
+      }
+    }
+
+    for (int i = idx, x = 0; x < display.width(); --i, ++x)
+    {
+      if (i < 0)
+        i = display.width() - 1;
+
+      int16_t pos = display.width() - x - 1;
+
+      if (max_up > 0)
+      {
+        display.drawLine(pos, 0, pos, (data[DISK_READ][i] * display.height()) / (2 * max_up), SSD1306_WHITE);
+      }
+      if (max_down > 0)
+      {
+        display.drawLine(pos, display.height(), pos, display.height() - (data[DISK_WRITE][i] * display.height()) / (2 * max_down), SSD1306_WHITE);
+      }
+    }
+
+    if (showInfo)
+    {
+      display.setCursor(2, 4);
+      int disk_read = data[DISK_READ][idx];
+      if (disk_read > 1023)
+      {
+        display.printf("R %.1f MB/s", disk_read / 1024.0);
+      }
+      else
+      {
+        display.printf("R %d KB/s", disk_read);
+      }
+      display.setCursor(2, 20);
+      int disk_write = data[DISK_WRITE][idx];
+      if (disk_write > 1024)
+      {
+        display.printf("W %.1f MB/s", disk_write / 1024.0);
+      }
+      else
+      {
+        display.printf("W %d KB/s", data[DISK_WRITE][idx]);
       }
     }
   }
@@ -378,6 +418,8 @@ void loop()
   int bri = root["bri"].as<int>();
   int net_up = root["net_up"].as<int>();
   int net_down = root["net_down"].as<int>();
+  int disk_read = root["disk_read"].as<int>();
+  int disk_write = root["disk_write"].as<int>();
 
   String cpu_string = String(cpu);
   String mem_string = String(mem);
@@ -421,6 +463,8 @@ void loop()
     data[MEM][idx] = mem;
     data[NET_UP][idx] = net_up;
     data[NET_DOWN][idx] = net_down;
+    data[DISK_READ][idx] = disk_read;
+    data[DISK_WRITE][idx] = disk_write;
 
     paintOLED();
     idx += 1;

@@ -11,7 +11,7 @@ use chrono::prelude::*;
 use clap::{App, Arg};
 use serde_json::json;
 use serialport::{ClearBuffer, Error, ErrorKind, Result, SerialPort, SerialPortType};
-use sysinfo::{NetworkExt, NetworksExt, ProcessorExt, RefreshKind, System, SystemExt};
+use sysinfo::{CpuExt, NetworkExt, NetworksExt, ProcessExt, RefreshKind, System, SystemExt};
 
 fn main() {
     let matches = App::new("Gejji")
@@ -124,7 +124,7 @@ fn main() {
 
     let mut sys = System::new_with_specifics(
         RefreshKind::everything()
-            .without_disks()
+            // .without_disks()
             .without_users_list()
             .without_components(),
     );
@@ -133,28 +133,73 @@ fn main() {
         sys.refresh_cpu();
         sys.refresh_memory();
         sys.refresh_networks();
-        let cpu_usage = (sys.get_global_processor_info().get_cpu_usage() * 10.0).round() as u64;
-        let mem_usage = (((sys.get_used_memory() as f64 + sys.get_total_swap() as f64)
-            / sys.get_total_memory() as f64)
+        sys.refresh_processes();
+        sys.refresh_disks();
+        let cpu_usage = (sys.global_cpu_info().cpu_usage() * 10.0).round() as u64;
+        let mem_usage = (((sys.used_memory() as f64 + sys.used_swap() as f64)
+            / sys.total_memory() as f64)
             * 1000.0)
             .round() as u64;
 
         let net_up_kbps: u64 = (sys
-            .get_networks()
+            .networks()
             .iter()
-            .map(|(_, data)| data.get_transmitted())
+            .map(|(_, data)| data.transmitted())
             .sum::<u64>() as f64
             / 1024.0
             / (interval as f64))
             .round() as u64;
         let net_down_kbps: u64 = (sys
-            .get_networks()
+            .networks()
             .iter()
-            .map(|(_, data)| data.get_received())
+            .map(|(_, data)| data.received())
             .sum::<u64>() as f64
             / 1024.0
             / (interval as f64))
             .round() as u64;
+
+        // #[cfg(target_family = "unix")]
+        let disk_read_kbps = (sys
+            .processes()
+            .values()
+            .map(|proc| proc.disk_usage().read_bytes)
+            .sum::<u64>() as f64
+            / 1024.0
+            / (interval as f64))
+            .round() as u64;
+        // #[cfg(target_family = "unix")]
+        let disk_write_kbps = (sys
+            .processes()
+            .values()
+            .map(|proc| proc.disk_usage().written_bytes)
+            .sum::<u64>() as f64
+            / 1024.0
+            / (interval as f64))
+            .round() as u64;
+
+        // TODO: Debug disk IO numbers on Windows
+        // #[cfg(target_family = "windows")]
+        // let disk_read_kbps = (sys
+        //     .processes()
+        //     .values()
+        //     .nth(1)
+        //     .unwrap()
+        //     .disk_usage()
+        //     .read_bytes as f64
+        //     / 1024.0
+        //     / (interval as f64))
+        //     .round() as u64;
+        // #[cfg(target_family = "windows")]
+        // let disk_write_kbps = (sys
+        //     .processes()
+        //     .values()
+        //     .nth(1)
+        //     .unwrap()
+        //     .disk_usage()
+        //     .written_bytes as f64
+        //     / 1024.0
+        //     / (interval as f64))
+        //     .round() as u64;
 
         if verbose {
             print!("{:?}", Utc::now());
@@ -162,6 +207,8 @@ fn main() {
             print!(" | MEM: {}%", mem_usage as f64 / 10.0);
             print!(" | NET_UP: {}KB/s", net_up_kbps);
             println!(" | NET_DN: {}KB/s", net_down_kbps);
+            println!(" | DISK_READ: {}KB/s", disk_read_kbps);
+            println!(" | DISK_WRITE: {}KB/s", disk_write_kbps);
         }
 
         let json = json!({
@@ -172,6 +219,8 @@ fn main() {
             "alphanum": alphanum,
             "net_up": net_up_kbps,
             "net_down": net_down_kbps,
+            "disk_read": disk_read_kbps,
+            "disk_write": disk_write_kbps,
         });
 
         match detect_device() {
