@@ -18,7 +18,7 @@
 Adafruit_SSD1306 display;
 
 Adafruit_AlphaNum4 alpha4;
-DynamicJsonDocument doc(256);
+StaticJsonDocument<512> doc;
 
 #define CPU 0
 #define MEM 1
@@ -46,6 +46,7 @@ View view = SYSTEM;
 
 volatile bool displayImmediate = false;
 volatile bool showInfo = true;
+// volatile bool invert = false;
 volatile unsigned long lastTrigger = millis();
 volatile int bounce = 0;
 int prevBounceCount = 0;
@@ -135,6 +136,25 @@ ICACHE_RAM_ATTR void toggleInfo()
   }
 }
 
+ICACHE_RAM_ATTR void toggleInvert()
+{
+  if (lastTrigger > millis() || lastTrigger + 200 < millis())
+  {
+    lastTrigger = millis();
+    invert = !invert;
+    display.invertDisplay(invert);
+
+    if (!alphanum)
+    {
+      displayImmediate = true;
+    }
+  }
+  else
+  {
+    bounce++;
+  }
+}
+
 void initAlphanumericDisplay()
 {
   Serial.println("Init alphanum");
@@ -190,19 +210,22 @@ void initOLEDDisplay()
   display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
 
   pinMode(A_BUTTON, INPUT_PULLUP);
+  pinMode(B_BUTTON, INPUT_PULLUP);
   pinMode(C_BUTTON, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(A_BUTTON), toggleInfo, RISING);
+  attachInterrupt(digitalPinToInterrupt(B_BUTTON), toggleInvert, RISING);
   attachInterrupt(digitalPinToInterrupt(C_BUTTON), changeView, RISING);
 }
 
 void setup()
 {
-  memset(data, 0, sizeof(int) * 4 * 128);
+//  memset(data, 0, sizeof(int) * 6 * 128);
   Serial.begin(115200);
-
+  Serial.print("Waiting for Serial");
   while (!Serial.available())
   {
     // Wait for first packet
+    Serial.print(".");
     delay(1000);
   }
 
